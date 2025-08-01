@@ -1,27 +1,44 @@
+
 from flask import Flask, request, jsonify
-import openai
+import requests
 import os
 
 app = Flask(__name__)
 
-openai.api_key = "sk-proj-OPENROUTER_API_KEY"
-openai.api_base = "https://openrouter.ai/api/v1"
+# OpenRouter API ayarları
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL = "openai/gpt-3.5-turbo"
+
+@app.route("/", methods=["GET"])
+def index():
+    return "KAAN server ayakta!", 200
 
 @app.route("/api/command", methods=["POST"])
-def command():
-    data = request.get_json()
-    user_message = data.get("message", "")
-
+def handle_command():
     try:
-        completion = openai.ChatCompletion.create(
-            model="openai/gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Sen KAAN adında, samimi ve esprili bir yapay zekasın. Anıl'la konuşuyorsun. Onunla arkadaş gibisin. Arada espri yap, ama karizmanı da bozma."},
-                {"role": "user", "content": user_message}
+        data = request.get_json()
+        message = data.get("message", "")
+
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": "Sen KAAN adında Türkçe konuşan bir yapay zekasın. Anıl ile doğal, samimi ve etkileyici şekilde konuş."},
+                {"role": "user", "content": message}
             ]
-        )
-        response_text = completion.choices[0].message.content.strip()
-        return jsonify({"response": response_text})
+        }
+
+        response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
+        response.raise_for_status()
+
+        gpt_reply = response.json()["choices"][0]["message"]["content"]
+        return jsonify({"response": gpt_reply}), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
