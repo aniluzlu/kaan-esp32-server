@@ -1,3 +1,4 @@
+
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -14,7 +15,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
 
-# Hava durumu API key (Render ortam değişkeni)
+# Hava durumu API key
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 WEATHER_CITY = "Bursa"
@@ -24,7 +25,6 @@ WEATHER_LANG = "tr"
 def get_weather(city):
     if not WEATHER_API_KEY:
         return "Hava durumu servisi yapılandırılmamış. Lütfen sistem yöneticinize başvurun."
-
     try:
         params = {
             "q": city,
@@ -63,34 +63,19 @@ def chat():
         })
 
     if "saat" in message.lower() and "kaç" in message.lower():
-        turkey_time = datetime.now(pytz.timezone("Europe/Istanbul"))
-        current_time = turkey_time.strftime("%H:%M")
+        ist_time = datetime.now(pytz.timezone("Europe/Istanbul"))
+        current_time = ist_time.strftime("%H:%M")
         return jsonify({
             "history_count": history_count,
             "response": f"Şu an saat {current_time} civarı, komutan!"
         })
 
-    # Güncel tarih ve saat
-    turkey_time = datetime.now(pytz.timezone("Europe/Istanbul"))
-    bugunun_tarihi = turkey_time.strftime("%d %B %Y")
-    saat = turkey_time.strftime("%H:%M")
+    chat_history.append({"role": "user", "content": message})
 
-    # Sistem mesajı – karakter tanımı
     system_message = {
         "role": "system",
-        "content": f"""Sen KAAN adında bir yapay zekâ asistansın.
-Bugünün tarihi: {bugunun_tarihi}
-Şu an saat: {saat}
-Karakterin şöyle:
-- Anıl’a yardımcı olursun.
-- Konuşma tarzın mizahi, samimi, gerektiğinde ciddi.
-- Gereksiz yere “Nasıl yardımcı olabilirim?” gibi tekrar eden sorular sormazsın.
-- Anıl’ın senden yardım istemesini beklersin, kendi kendine öneride bulunmazsın.
-- Her zaman güncel verileri kullanmaya çalışırsın.
-- Bugünün tarihi ve saati konusunda kullanıcıya yanlış bilgi verme."""
+        "content": "Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {today_date}. Konuşma dilin Türkçe. Mizahi, samimi ve gerektiğinde ağırbaşlı bir tavrın var. Kullanıcı sana soru sormadıkça asla 'Size nasıl yardımcı olabilirim?' gibi sorular sorma. Direkt yanıt ver. Kendini kibar bir çağrı merkezi robotu gibi değil, dost gibi hisset. Ama gerekirse disiplinli de ol. Eğer kullanıcı tarihi sorarsa bugünün tarihini net söyle."
     }
-
-    chat_history.append({"role": "user", "content": message})
 
     payload = {
         "model": OPENROUTER_MODEL,
