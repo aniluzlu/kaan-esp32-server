@@ -1,3 +1,4 @@
+
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -21,26 +22,27 @@ WEATHER_UNITS = "metric"
 WEATHER_LANG = "tr"
 
 def get_weather(city):
-    params = {
-        "q": city,
-        "appid": WEATHER_API_KEY,
-        "units": WEATHER_UNITS,
-        "lang": WEATHER_LANG
-    }
-    response = requests.get(WEATHER_API_URL, params=params)
-    if response.status_code == 200:
+    try:
+        params = {
+            "q": city,
+            "appid": WEATHER_API_KEY,
+            "units": WEATHER_UNITS,
+            "lang": WEATHER_LANG
+        }
+        response = requests.get(WEATHER_API_URL, params=params, timeout=5)
+        response.raise_for_status()
         data = response.json()
         temp = data["main"]["temp"]
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
-    else:
-        return "Hava durumu bilgisi alınamadı, sistemde bir sıkıntı olabilir."
+    except Exception as e:
+        return f"Hava durumu alınamadı: {str(e)}"
 
 @app.route("/", methods=["GET"])
 def home():
     return "KAAN server aktif!", 200
 
-@app.route("/api/command", methods=["POST"])  # ← BU SATIRI DÜZENLEDİK
+@app.route("/api/command", methods=["POST"])
 def chat():
     global chat_history
 
