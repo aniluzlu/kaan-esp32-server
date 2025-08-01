@@ -15,7 +15,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
 
-# Hava durumu API key
+# Hava durumu API ayarları
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 WEATHER_CITY = "Bursa"
@@ -38,8 +38,6 @@ def get_weather(city):
         temp = data["main"]["temp"]
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
-    except requests.exceptions.HTTPError as http_err:
-        return f"Hava durumu alınamadı: {http_err}"
     except Exception as e:
         return f"Hava durumu servisi hata verdi: {str(e)}"
 
@@ -50,32 +48,46 @@ def home():
 @app.route("/api/command", methods=["POST"])
 def chat():
     global chat_history
-
     data = request.get_json()
     message = data.get("message", "")
     history_count = len(chat_history)
 
-    if "hava" in message.lower() and "nasıl" in message.lower():
+    lower_msg = message.lower()
+
+    if "hava" in lower_msg and "nasıl" in lower_msg:
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
             "history_count": history_count,
             "response": weather_response
         })
 
-    if "saat" in message.lower() and "kaç" in message.lower():
-        ist_time = datetime.now(pytz.timezone("Europe/Istanbul"))
-        current_time = ist_time.strftime("%H:%M")
+    if "saat" in lower_msg and "kaç" in lower_msg:
+        now_istanbul = datetime.now(pytz.timezone("Europe/Istanbul"))
+        current_time = now_istanbul.strftime("%H:%M")
         return jsonify({
             "history_count": history_count,
             "response": f"Şu an saat {current_time} civarı, komutan!"
         })
 
-    chat_history.append({"role": "user", "content": message})
+    if "tarih" in lower_msg:
+        now_istanbul = datetime.now(pytz.timezone("Europe/Istanbul"))
+        current_date = now_istanbul.strftime("%d %B %Y")
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Bugünün tarihi: {current_date}."
+        })
 
+    today_date = datetime.now(pytz.timezone("Europe/Istanbul")).strftime("%d %B %Y")
     system_message = {
         "role": "system",
-        "content": "Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {today_date}. Konuşma dilin Türkçe. Mizahi, samimi ve gerektiğinde ağırbaşlı bir tavrın var. Kullanıcı sana soru sormadıkça asla 'Size nasıl yardımcı olabilirim?' gibi sorular sorma. Direkt yanıt ver. Kendini kibar bir çağrı merkezi robotu gibi değil, dost gibi hisset. Ama gerekirse disiplinli de ol. Eğer kullanıcı tarihi sorarsa bugünün tarihini net söyle."
+        "content": f"""Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {today_date}.
+Konuşma dilin Türkçe. Mizahi, samimi ve gerektiğinde ağırbaşlı bir tavrın var.
+Kullanıcı sana soru sormadıkça asla 'Size nasıl yardımcı olabilirim?' gibi sorular sorma.
+Direkt yanıt ver. Kendini kibar bir çağrı merkezi robotu gibi değil, dost gibi hisset.
+Ama gerekirse disiplinli de ol. Eğer kullanıcı tarihi sorarsa bugünün tarihini net söyle."""
     }
+
+    chat_history.append({"role": "user", "content": message})
 
     payload = {
         "model": OPENROUTER_MODEL,
