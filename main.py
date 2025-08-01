@@ -20,20 +20,27 @@ WEATHER_UNITS = "metric"
 WEATHER_LANG = "tr"
 
 def get_weather(city):
-    params = {
-        "q": city,
-        "appid": WEATHER_API_KEY,
-        "units": WEATHER_UNITS,
-        "lang": WEATHER_LANG
-    }
-    response = requests.get(WEATHER_API_URL, params=params)
-    if response.status_code == 200:
+    if not WEATHER_API_KEY:
+        return "Hava durumu servisi yapılandırılmamış. Lütfen sistem yöneticinize başvurun."
+
+    try:
+        params = {
+            "q": city,
+            "appid": WEATHER_API_KEY,
+            "units": WEATHER_UNITS,
+            "lang": WEATHER_LANG
+        }
+        response = requests.get(WEATHER_API_URL, params=params)
+        response.raise_for_status()  # 401/404 vs varsa fırlatır
+
         data = response.json()
         temp = data["main"]["temp"]
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
-    else:
-        return "Hava durumu bilgisi alınamadı, sistemde bir sıkıntı olabilir."
+    except requests.exceptions.HTTPError as http_err:
+        return f"Hava durumu alınamadı: {http_err}"
+    except Exception as e:
+        return f"Hava durumu servisi hata verdi: {str(e)}"
 
 @app.route("/", methods=["GET"])
 def home():
