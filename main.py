@@ -55,6 +55,14 @@ def chat():
     history_count = len(chat_history)
 
     if "hava" in message.lower() and "nasıl" in message.lower():
+            # Saat bilgisi isteniyorsa özel yanıt
+    if "saat" in message.lower() and "kaç" in message.lower():
+        current_time = datetime.now().strftime("%H:%M")
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Şu an saat {current_time} civarı, komutan!"
+        })
+
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
             "history_count": history_count,
