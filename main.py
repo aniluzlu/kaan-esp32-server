@@ -1,46 +1,48 @@
-
-from flask import Flask, request, jsonify
-import openai
 import os
+import json
+from flask import Flask, request, jsonify
+from openai import OpenAI
 
 app = Flask(__name__)
 
-# OpenRouter API ayarları (API key gizli tutulur)
-openai.api_key = os.getenv("OPENROUTER_API_KEY")
-openai.api_base = "https://openrouter.ai/api/v1"
+# Ortam değişkeninden API anahtarını al
+api_key = os.getenv("OPENROUTER_API_KEY")
+if not api_key:
+    raise ValueError("OPENROUTER_API_KEY environment variable not set.")
 
-@app.route("/", methods=["GET"])
-def index():
-    return "KAAN ESP32 Sunucusu (OpenRouter + Güvenli API Key) çalışıyor."
+# OpenRouter API'sine bağlanmak için istemci oluştur
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://openrouter.ai/api/v1"
+)
 
 @app.route("/api/command", methods=["POST"])
-def command():
-    data = request.get_json()
-    user_message = data.get("message", "")
-
-    if not user_message:
-        return jsonify({"error": "Mesaj boş olamaz"}), 400
-
+def handle_command():
     try:
-        response = openai.ChatCompletion.create(
+        data = request.get_json()
+        user_message = data.get("message", "")
+
+        if not user_message:
+            return jsonify({"error": "Message field is required"}), 400
+
+        print(f"Gelen mesaj: {user_message}")
+
+        response = client.chat.completions.create(
             model="openai/gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Sen KAAN adında Türk yapımı bir zırhlı kask asistanısın."},
+                {"role": "system", "content": "Sen KAAN adında, Türkçe konuşan bir yardımcı yapay zekasın."},
                 {"role": "user", "content": user_message}
-            ],
-            temperature=0.7
+            ]
         )
 
-        assistant_reply = response.choices[0].message.content
+        reply = response.choices[0].message.content.strip()
+        print(f"Yanıt: {reply}")
 
-        return jsonify({
-            "response": assistant_reply
-        })
+        return jsonify({"response": reply}), 200
 
     except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
