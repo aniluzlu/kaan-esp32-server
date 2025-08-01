@@ -1,26 +1,45 @@
+
 from flask import Flask, request, jsonify
+import openai
+import os
 
 app = Flask(__name__)
 
-# En son gönderilen komut burada saklanacak
-latest_command = {"command": "KAAN, kaskı hazırla"}  # başlangıç komutu
+# OpenAI API anahtarını burada tanımlayın veya environment variable olarak kullanın
+openai.api_key = os.getenv("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")
 
-@app.route('/')
+@app.route("/", methods=["GET"])
 def index():
-    return "KAAN ESP32 Sunucusu çalışıyor!"
+    return "KAAN ESP32 Sunucusu Aktif!"
 
-# Android uygulaması bu endpoint'e POST ile komut gönderiyor
-@app.route('/api/command', methods=['POST'])
-def post_command():
-    global latest_command
-    latest_command = request.get_json()
-    print("Komut alındı:", latest_command)
-    return jsonify({"status": "OK", "received": latest_command})
+@app.route("/api/command", methods=["POST"])
+def command():
+    data = request.get_json()
+    user_message = data.get("message", "")
 
-# ESP32 bu endpoint'ten komutu GET ile çekiyor
-@app.route('/api/command', methods=['GET'])
-def get_command():
-    return jsonify(latest_command)
+    if not user_message:
+        return jsonify({"error": "Mesaj boş olamaz"}), 400
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # veya gpt-4
+            messages=[
+                {"role": "system", "content": "Sen KAAN adında Türk yapımı bir zırhlı kask asistanısın."},
+                {"role": "user", "content": user_message}
+            ],
+            temperature=0.7
+        )
+
+        assistant_reply = response['choices'][0]['message']['content']
+
+        return jsonify({
+            "response": assistant_reply
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+if __name__ == "__main__":
+    app.run(debug=True)
