@@ -1,4 +1,3 @@
-
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -41,7 +40,7 @@ def get_weather(city):
 def home():
     return "KAAN server aktif!", 200
 
-@app.route("/command", methods=["POST"])
+@app.route("/api/command", methods=["POST"])  # ← BU SATIRI DÜZENLEDİK
 def chat():
     global chat_history
 
