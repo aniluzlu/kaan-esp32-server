@@ -1,4 +1,3 @@
-
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -14,7 +13,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
 
-# Hava durumu API key (Render ortam değişkeni)
+# Hava durumu API ayarları
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 WEATHER_CITY = "Bursa"
@@ -22,21 +21,20 @@ WEATHER_UNITS = "metric"
 WEATHER_LANG = "tr"
 
 def get_weather(city):
-    try:
-        params = {
-            "q": city,
-            "appid": WEATHER_API_KEY,
-            "units": WEATHER_UNITS,
-            "lang": WEATHER_LANG
-        }
-        response = requests.get(WEATHER_API_URL, params=params, timeout=5)
-        response.raise_for_status()
+    params = {
+        "q": city,
+        "appid": WEATHER_API_KEY,
+        "units": WEATHER_UNITS,
+        "lang": WEATHER_LANG
+    }
+    response = requests.get(WEATHER_API_URL, params=params)
+    if response.status_code == 200:
         data = response.json()
         temp = data["main"]["temp"]
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
-    except Exception as e:
-        return f"Hava durumu alınamadı: {str(e)}"
+    else:
+        return f"Hava durumu alınamadı: {response.status_code} - {response.reason}"
 
 @app.route("/", methods=["GET"])
 def home():
@@ -50,7 +48,7 @@ def chat():
     message = data.get("message", "")
     history_count = len(chat_history)
 
-    # Eğer mesaj hava durumu ile ilgiliyse özel yanıt
+    # Hava durumu sorgusu
     if "hava" in message.lower() and "nasıl" in message.lower():
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
@@ -58,10 +56,18 @@ def chat():
             "response": weather_response
         })
 
+    # Tarih sorgusu
+    if any(word in message.lower() for word in ["tarih", "bugün ne", "günlerden"]):
+        now = datetime.now()
+        tarih = now.strftime("%-d %B %Y, %A")
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Bugün {tarih}."
+        })
+
     # Sohbet geçmişine yeni mesajı ekle
     chat_history.append({"role": "user", "content": message})
 
-    # API’ye istek gönder
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
