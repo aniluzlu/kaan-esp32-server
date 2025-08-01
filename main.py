@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, request, jsonify
+from datetime import datetime  # ← EKLENDİ
 
 app = Flask(__name__)
 
@@ -31,8 +32,7 @@ def get_weather(city):
             "lang": WEATHER_LANG
         }
         response = requests.get(WEATHER_API_URL, params=params)
-        response.raise_for_status()  # 401/404 vs varsa fırlatır
-
+        response.raise_for_status()
         data = response.json()
         temp = data["main"]["temp"]
         description = data["weather"][0]["description"]
@@ -54,8 +54,7 @@ def chat():
     message = data.get("message", "")
     history_count = len(chat_history)
 
-    if "hava" in message.lower() and "nasıl" in message.lower():
-            # Saat bilgisi isteniyorsa özel yanıt
+    # ⏰ Saat bilgisi
     if "saat" in message.lower() and "kaç" in message.lower():
         current_time = datetime.now().strftime("%H:%M")
         return jsonify({
@@ -63,16 +62,17 @@ def chat():
             "response": f"Şu an saat {current_time} civarı, komutan!"
         })
 
+    # ☁️ Hava durumu
+    if "hava" in message.lower() and "nasıl" in message.lower():
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
             "history_count": history_count,
             "response": weather_response
         })
 
-    # Sohbet geçmişine yeni mesajı ekle
+    # 💬 Sohbet geçmişi
     chat_history.append({"role": "user", "content": message})
 
-    # Sistem mesajı – karakter tanımı ve tarih
     system_message = {
         "role": "system",
         "content": """Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: 01 August 2025.
