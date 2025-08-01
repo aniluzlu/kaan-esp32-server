@@ -1,16 +1,16 @@
 
 from flask import Flask, request, jsonify
-from openai import OpenAI
-import os
+import openai
 
 app = Flask(__name__)
 
-# OpenAI API istemcisi oluşturuluyor
-client = OpenAI(api_key=os.getenv("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"))
+# OpenRouter API ayarları
+openai.api_key = "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"
+openai.api_base = "https://openrouter.ai/api/v1"
 
 @app.route("/", methods=["GET"])
 def index():
-    return "KAAN ESP32 Sunucusu Aktif! 🧠"
+    return "KAAN ESP32 Sunucusu (OpenRouter bağlantılı) çalışıyor."
 
 @app.route("/api/command", methods=["POST"])
 def command():
@@ -21,8 +21,8 @@ def command():
         return jsonify({"error": "Mesaj boş olamaz"}), 400
 
     try:
-        completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+        response = openai.ChatCompletion.create(
+            model="openai/gpt-3.5-turbo",  # OpenRouter'da desteklenen model
             messages=[
                 {"role": "system", "content": "Sen KAAN adında Türk yapımı bir zırhlı kask asistanısın."},
                 {"role": "user", "content": user_message}
@@ -30,7 +30,7 @@ def command():
             temperature=0.7
         )
 
-        assistant_reply = completion.choices[0].message.content
+        assistant_reply = response.choices[0].message.content
 
         return jsonify({
             "response": assistant_reply
