@@ -1,16 +1,17 @@
 
 from flask import Flask, request, jsonify
 import openai
+import os
 
 app = Flask(__name__)
 
-# OpenRouter API ayarları
-openai.api_key = "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"
+# OpenRouter API ayarları (API key gizli tutulur)
+openai.api_key = os.getenv("OPENROUTER_API_KEY")
 openai.api_base = "https://openrouter.ai/api/v1"
 
 @app.route("/", methods=["GET"])
 def index():
-    return "KAAN ESP32 Sunucusu (OpenRouter bağlantılı) çalışıyor."
+    return "KAAN ESP32 Sunucusu (OpenRouter + Güvenli API Key) çalışıyor."
 
 @app.route("/api/command", methods=["POST"])
 def command():
@@ -22,7 +23,7 @@ def command():
 
     try:
         response = openai.ChatCompletion.create(
-            model="openai/gpt-3.5-turbo",  # OpenRouter'da desteklenen model
+            model="openai/gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Sen KAAN adında Türk yapımı bir zırhlı kask asistanısın."},
                 {"role": "user", "content": user_message}
