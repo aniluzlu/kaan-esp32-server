@@ -1,7 +1,6 @@
 import os
 import requests
 from flask import Flask, request, jsonify
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -13,7 +12,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
 
-# Hava durumu API ayarları
+# Hava durumu API key (Render ortam değişkeni)
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 WEATHER_CITY = "Bursa"
@@ -34,7 +33,7 @@ def get_weather(city):
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
     else:
-        return f"Hava durumu alınamadı: {response.status_code} - {response.reason}"
+        return "Hava durumu bilgisi alınamadı, sistemde bir sıkıntı olabilir."
 
 @app.route("/", methods=["GET"])
 def home():
@@ -48,7 +47,6 @@ def chat():
     message = data.get("message", "")
     history_count = len(chat_history)
 
-    # Hava durumu sorgusu
     if "hava" in message.lower() and "nasıl" in message.lower():
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
@@ -56,29 +54,30 @@ def chat():
             "response": weather_response
         })
 
-    # Tarih sorgusu
-    if any(word in message.lower() for word in ["tarih", "bugün ne", "günlerden"]):
-        now = datetime.now()
-        tarih = now.strftime("%-d %B %Y, %A")
-        return jsonify({
-            "history_count": history_count,
-            "response": f"Bugün {tarih}."
-        })
-
     # Sohbet geçmişine yeni mesajı ekle
     chat_history.append({"role": "user", "content": message})
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
+    # Sistem mesajı – karakter tanımı ve tarih
+    system_message = {
+        "role": "system",
+        "content": """Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: 01 August 2025.
+Karakterin şöyle:
+
+- Anıl’a yardımcı olursun.
+- Konuşma tarzın mizahi, samimi, gerektiğinde ciddi.
+- Her zaman güncel verileri kullanmaya çalışırsın.
+- Bugünün tarihi konusunda kullanıcıya yanlış bilgi verme.
+- Eğer tarihi sorarsa, '01 August 2025' olduğunu net ve güvenle söyle."""
     }
 
     payload = {
         "model": OPENROUTER_MODEL,
-        "messages": [
-            {"role": "system", "content": "Sen KAAN adında esprili ama gerektiğinde ciddi davranan bir asistansın. Türkçe konuşuyorsun ve Anıl'a yardımcı oluyorsun."},
-            *chat_history
-        ]
+        "messages": [system_message] + chat_history
+    }
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
     }
 
     response = requests.post(OPENROUTER_BASE_URL, headers=headers, json=payload)
