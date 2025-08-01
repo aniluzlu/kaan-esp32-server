@@ -1,68 +1,93 @@
-from flask import Flask, request, jsonify
-import requests
+
 import os
+import requests
+from flask import Flask, request, jsonify
 from datetime import datetime
 
 app = Flask(__name__)
 
-# OpenRouter API ayarları
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "openai/gpt-3.5-turbo"
-
-# Konuşma geçmişi (sunucu yeniden başlatıldığında sıfırlanır)
+# Hafıza sistemi
 chat_history = []
 
+# OpenRouter API ayarları
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
+
+# Hava durumu API key (Render ortam değişkeni)
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
+WEATHER_CITY = "Bursa"
+WEATHER_UNITS = "metric"
+WEATHER_LANG = "tr"
+
+def get_weather(city):
+    params = {
+        "q": city,
+        "appid": WEATHER_API_KEY,
+        "units": WEATHER_UNITS,
+        "lang": WEATHER_LANG
+    }
+    response = requests.get(WEATHER_API_URL, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        temp = data["main"]["temp"]
+        description = data["weather"][0]["description"]
+        return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
+    else:
+        return "Hava durumu bilgisi alınamadı, sistemde bir sıkıntı olabilir."
+
 @app.route("/", methods=["GET"])
-def index():
-    return "KAAN server ayakta! Konuşma geçmişi destekliyor.", 200
+def home():
+    return "KAAN server aktif!", 200
 
-@app.route("/api/command", methods=["POST"])
-def handle_command():
-    try:
-        data = request.get_json()
-        user_message = data.get("message", "")
-        if not user_message:
-            return jsonify({"error": "Mesaj alanı boş olamaz"}), 400
+@app.route("/command", methods=["POST"])
+def chat():
+    global chat_history
 
-        # Güncel tarihi al
-        current_date = datetime.now().strftime("%d %B %Y")
+    data = request.get_json()
+    message = data.get("message", "")
+    history_count = len(chat_history)
 
-        # Mesaj geçmişine yeni kullanıcı mesajını ekle
-        chat_history.append({"role": "user", "content": user_message})
+    # Eğer mesaj hava durumu ile ilgiliyse özel yanıt
+    if "hava" in message.lower() and "nasıl" in message.lower():
+        weather_response = get_weather(WEATHER_CITY)
+        return jsonify({
+            "history_count": history_count,
+            "response": weather_response
+        })
 
-        # Sistem mesajı (karakter + tarih)
-        system_prompt = (
-            f"Bugünün tarihi: {current_date}. "
-            "Sen KAAN adında bir yapay zekasın. Hafif fırlama, esprili ama gerektiğinde ağırbaşlısın. "
-            "Anıl ile samimi bir arkadaş gibi konuş, teknik konularda detaylı açıklamalar yap."
-        )
+    # Sohbet geçmişine yeni mesajı ekle
+    chat_history.append({"role": "user", "content": message})
 
-        # Tüm geçmişi modele gönder
-        messages = [{"role": "system", "content": system_prompt}] + chat_history
+    # API’ye istek gönder
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
-        }
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "messages": [
+            {"role": "system", "content": "Sen KAAN adında esprili ama gerektiğinde ciddi davranan bir asistansın. Türkçe konuşuyorsun ve Anıl'a yardımcı oluyorsun."},
+            *chat_history
+        ]
+    }
 
-        payload = {
-            "model": MODEL,
-            "messages": messages
-        }
+    response = requests.post(OPENROUTER_BASE_URL, headers=headers, json=payload)
 
-        response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
-        response.raise_for_status()
-
-        gpt_reply = response.json()["choices"][0]["message"]["content"]
-
-        # Modelin cevabını geçmişe ekle
-        chat_history.append({"role": "assistant", "content": gpt_reply})
-
-        return jsonify({"response": gpt_reply, "history_count": len(chat_history)}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if response.status_code == 200:
+        reply = response.json()["choices"][0]["message"]["content"]
+        chat_history.append({"role": "assistant", "content": reply})
+        return jsonify({
+            "history_count": history_count,
+            "response": reply
+        })
+    else:
+        return jsonify({
+            "error": "OpenRouter yanıt vermedi.",
+            "details": response.text
+        }), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
