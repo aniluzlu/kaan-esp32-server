@@ -1,7 +1,8 @@
 import os
 import requests
 from flask import Flask, request, jsonify
-from datetime import datetime  # ← EKLENDİ
+from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 
@@ -54,15 +55,6 @@ def chat():
     message = data.get("message", "")
     history_count = len(chat_history)
 
-    # ⏰ Saat bilgisi
-    if "saat" in message.lower() and "kaç" in message.lower():
-        current_time = datetime.now().strftime("%H:%M")
-        return jsonify({
-            "history_count": history_count,
-            "response": f"Şu an saat {current_time} civarı, komutan!"
-        })
-
-    # ☁️ Hava durumu
     if "hava" in message.lower() and "nasıl" in message.lower():
         weather_response = get_weather(WEATHER_CITY)
         return jsonify({
@@ -70,20 +62,35 @@ def chat():
             "response": weather_response
         })
 
-    # 💬 Sohbet geçmişi
-    chat_history.append({"role": "user", "content": message})
+    if "saat" in message.lower() and "kaç" in message.lower():
+        turkey_time = datetime.now(pytz.timezone("Europe/Istanbul"))
+        current_time = turkey_time.strftime("%H:%M")
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Şu an saat {current_time} civarı, komutan!"
+        })
 
+    # Güncel tarih ve saat
+    turkey_time = datetime.now(pytz.timezone("Europe/Istanbul"))
+    bugunun_tarihi = turkey_time.strftime("%d %B %Y")
+    saat = turkey_time.strftime("%H:%M")
+
+    # Sistem mesajı – karakter tanımı
     system_message = {
         "role": "system",
-        "content": """Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: 01 August 2025.
+        "content": f"""Sen KAAN adında bir yapay zekâ asistansın.
+Bugünün tarihi: {bugunun_tarihi}
+Şu an saat: {saat}
 Karakterin şöyle:
-
 - Anıl’a yardımcı olursun.
 - Konuşma tarzın mizahi, samimi, gerektiğinde ciddi.
+- Gereksiz yere “Nasıl yardımcı olabilirim?” gibi tekrar eden sorular sormazsın.
+- Anıl’ın senden yardım istemesini beklersin, kendi kendine öneride bulunmazsın.
 - Her zaman güncel verileri kullanmaya çalışırsın.
-- Bugünün tarihi konusunda kullanıcıya yanlış bilgi verme.
-- Eğer tarihi sorarsa, '01 August 2025' olduğunu net ve güvenle söyle."""
+- Bugünün tarihi ve saati konusunda kullanıcıya yanlış bilgi verme."""
     }
+
+    chat_history.append({"role": "user", "content": message})
 
     payload = {
         "model": OPENROUTER_MODEL,
