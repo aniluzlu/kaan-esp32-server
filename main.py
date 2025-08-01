@@ -1,16 +1,16 @@
 
 from flask import Flask, request, jsonify
-import openai
+from openai import OpenAI
 import os
 
 app = Flask(__name__)
 
-# OpenAI API anahtarını burada tanımlayın veya environment variable olarak kullanın
-openai.api_key = os.getenv("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")
+# OpenAI API istemcisi oluşturuluyor
+client = OpenAI(api_key=os.getenv("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"))
 
 @app.route("/", methods=["GET"])
 def index():
-    return "KAAN ESP32 Sunucusu Aktif!"
+    return "KAAN ESP32 Sunucusu Aktif! 🧠"
 
 @app.route("/api/command", methods=["POST"])
 def command():
@@ -21,8 +21,8 @@ def command():
         return jsonify({"error": "Mesaj boş olamaz"}), 400
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # veya gpt-4
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Sen KAAN adında Türk yapımı bir zırhlı kask asistanısın."},
                 {"role": "user", "content": user_message}
@@ -30,7 +30,7 @@ def command():
             temperature=0.7
         )
 
-        assistant_reply = response['choices'][0]['message']['content']
+        assistant_reply = completion.choices[0].message.content
 
         return jsonify({
             "response": assistant_reply
