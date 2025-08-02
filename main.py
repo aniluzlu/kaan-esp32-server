@@ -14,7 +14,7 @@ chat_history = []
 # API Anahtarları ve ayarlar
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "mistralai/mistral-7b-instruct"
+OPENROUTER_MODEL = "openchat/openchat-7b"
 
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
