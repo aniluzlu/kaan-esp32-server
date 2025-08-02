@@ -89,30 +89,6 @@ def chat():
                 content_type="application/json; charset=utf-8"
             )
 
-    # Komutlara uymuyorsa aşağıya geçer, ChatGPT'ye sorar
-    ...
-
-    # Komut kontrolü
-for trigger, details in command_triggers.items():
-    if trigger in message:
-        return Response(
-            json.dumps({
-                "history_count": history_count,
-                "response": details["reply"],
-                "actions": details["actions"]
-            }, ensure_ascii=False).encode("utf-8"),
-            content_type="application/json; charset=utf-8"
-        )
-
-    if message in command_triggers:
-        return Response(
-            json.dumps({
-                "history_count": history_count,
-                "response": command_triggers[message]
-            }, ensure_ascii=False).encode("utf-8"),
-            content_type="application/json; charset=utf-8"
-        )
-
     # 📅 Tarih ve saat
     if "hava" in message and "nasıl" in message:
         return Response(
