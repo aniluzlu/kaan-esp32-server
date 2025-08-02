@@ -10,6 +10,21 @@ app = Flask(__name__)
 
 # Hafıza sistemi
 chat_history = []
+command_triggers = {
+    "kaskı kapat": {
+        "reply": "Tüm Ulu Kağanlara Selam Olsun!",
+        "actions": "servo:kapat; led:yan; sound:servo.mp3,metal.mp3"
+    },
+    "kaskı aç": {
+        "reply": "Harp Türklüğündür!",
+        "actions": "led:son; servo:ac; sound:servo.mp3"
+    },
+    "kaskı hazırla": {
+        "reply": "Kask hazır, Anıl.",
+        "actions": ""
+    }
+}
+
 
 # API Anahtarları ve ayarlar
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -60,13 +75,17 @@ def chat():
     data = request.get_json()
     message = data.get("message", "").lower().strip()
     history_count = len(chat_history)
-
-    # 🔧 Net komut eşleşmeleri
-    command_triggers = {
-        "kaskı kapat": "servo:kapat; led:yan; sound:kapanma.mp3",
-        "kaskı aç": "led:son; servo:ac; sound:acilis.mp3",
-        "kaskı hazırla": "sound:hazir.mp3"
-    }
+    # Komut kontrolü
+for trigger, details in command_triggers.items():
+    if trigger in message:
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": details["reply"],
+                "actions": details["actions"]
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
     if message in command_triggers:
         return Response(
