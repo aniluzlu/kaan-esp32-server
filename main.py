@@ -1,45 +1,133 @@
-from flask import Flask, request, Response
+import os
 import requests
-import json
+from flask import Flask, request, jsonify
 from datetime import datetime
-from pytz import timezone
+import pytz
 
 app = Flask(__name__)
 
-@app.route("/api/command", methods=["POST"])
-def command():
-    user_message = request.json.get("message", "")
+# Hafıza sistemi
+chat_history = []
 
-    # Sistem mesajı
-    now = datetime.now(timezone("Europe/Istanbul"))
-    formatted_time = now.strftime("%H:%M")
-    formatted_date = now.strftime("%d %B %Y")
+# API Anahtarları ve ayarlar
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
+
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
+WEATHER_CITY = "Bursa"
+WEATHER_UNITS = "metric"
+WEATHER_LANG = "tr"
+
+# Saat ve tarih bilgisi
+def get_datetime_info():
+    now = datetime.now(pytz.timezone("Europe/Istanbul"))
+    tarih = now.strftime("%d %B %Y")
+    saat = now.strftime("%H:%M")
+    return tarih, saat
+
+# Hava durumu
+def get_weather(city):
+    if not WEATHER_API_KEY:
+        return "Hava durumu servisi ayarlanmadı."
+
+    try:
+        params = {
+            "q": city,
+            "appid": WEATHER_API_KEY,
+            "units": WEATHER_UNITS,
+            "lang": WEATHER_LANG
+        }
+        response = requests.get(WEATHER_API_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+        temp = data["main"]["temp"]
+        description = data["weather"][0]["description"]
+        return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
+    except Exception as e:
+        return f"Hava durumu alınamadı: {str(e)}"
+
+@app.route("/", methods=["GET"])
+def home():
+    return "KAAN server ayakta, komutan!", 200
+
+@app.route("/api/command", methods=["POST"])
+def chat():
+    global chat_history
+
+    data = request.get_json()
+    message = data.get("message", "").lower()
+    history_count = len(chat_history)
+
+    if "hava" in message and "nasıl" in message:
+        return jsonify({
+            "history_count": history_count,
+            "response": get_weather(WEATHER_CITY)
+        })
+
+    if "tarih" in message:
+        tarih, _ = get_datetime_info()
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Bugünün tarihi: {tarih}"
+        })
+
+    if "saat" in message and "kaç" in message:
+        _, saat = get_datetime_info()
+        return jsonify({
+            "history_count": history_count,
+            "response": f"Şu an saat {saat} civarında, komutan!"
+        })
+
+    # Sohbet geçmişi ve karakter yapısı
+    chat_history.append({"role": "user", "content": message})
+
+    tarih, saat = get_datetime_info()
+
+    system_content = (
+        f"Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {tarih}, saat: {saat}.
+"
+        "- Anil'a yardımcı oluyorsun.
+"
+        "- Konuşma tarzın fırlama, samimi ama gerektiğinde ciddi.
+"
+        "- Sürekli 'Nasıl yardımcı olabilirim?' gibi şeyler söyleme.
+"
+        "- Anıl seni yönlendirdikçe yanıt ver, çağrı merkezi gibi davranma.
+"
+        "- Gereksiz kibarlıklardan kaçın."
+    )
 
     system_message = {
         "role": "system",
-        "content": f"Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {formatted_date}, saat: {formatted_time}. Konuşma dilin Türkçe. Mizahi, samimi ve gerektiğinde ağırbaşlı bir tavrın var. Kullanıcı sana soru sormadıkça asla 'Size nasıl yardımcı olabilirim?' gibi sorular sorma. Direkt yanıt ver. Kendini kibar bir çağrı merkezi robotu gibi değil, dost gibi hisset. Ama gerekirse disiplinli de ol. Eğer kullanıcı tarihi, saati, hava durumunu veya güncel verileri sorarsa doğru ve dinamik şekilde yanıtla."
+        "content": system_content
     }
 
-    messages = [system_message, {"role": "user", "content": user_message}]
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "messages": [system_message] + chat_history
+    }
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": "Bearer YOUR_API_KEY",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": "openai/gpt-3.5-turbo",
-            "messages": messages
-        }
-    )
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-    assistant_reply = response.json()["choices"][0]["message"]["content"]
+    response = requests.post(OPENROUTER_BASE_URL, headers=headers, json=payload)
 
-    return Response(
-        json.dumps({"history_count": 1, "response": assistant_reply}, ensure_ascii=False),
-        mimetype="application/json"
-    )
+    if response.status_code == 200:
+        reply = response.json()["choices"][0]["message"]["content"]
+        chat_history.append({"role": "assistant", "content": reply})
+        return jsonify({
+            "history_count": history_count,
+            "response": reply
+        })
+    else:
+        return jsonify({
+            "error": "OpenRouter yanıt vermedi.",
+            "details": response.text
+        }), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True)
