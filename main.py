@@ -10,21 +10,29 @@ app = Flask(__name__)
 # Hafıza sistemi
 chat_history = []
 
-# OpenRouter API ayarları
+# API Anahtarları ve ayarlar
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "openai/gpt-3.5-turbo"
 
-# Hava durumu API ayarları
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 WEATHER_CITY = "Bursa"
 WEATHER_UNITS = "metric"
 WEATHER_LANG = "tr"
 
+# Saat ve tarih bilgisi
+def get_datetime_info():
+    now = datetime.now(pytz.timezone("Europe/Istanbul"))
+    tarih = now.strftime("%d %B %Y")
+    saat = now.strftime("%H:%M")
+    return tarih, saat
+
+# Hava durumu
 def get_weather(city):
     if not WEATHER_API_KEY:
-        return "Hava durumu servisi yapılandırılmamış. Lütfen sistem yöneticinize başvurun."
+        return "Hava durumu servisi ayarlanmadı."
+
     try:
         params = {
             "q": city,
@@ -39,55 +47,58 @@ def get_weather(city):
         description = data["weather"][0]["description"]
         return f"{city} için şu an hava {description}, sıcaklık {temp}°C civarında."
     except Exception as e:
-        return f"Hava durumu servisi hata verdi: {str(e)}"
+        return f"Hava durumu alınamadı: {str(e)}"
 
 @app.route("/", methods=["GET"])
 def home():
-    return "KAAN server aktif!", 200
+    return "KAAN server ayakta, komutan!", 200
 
 @app.route("/api/command", methods=["POST"])
 def chat():
     global chat_history
+
     data = request.get_json()
-    message = data.get("message", "")
+    message = data.get("message", "").lower()
     history_count = len(chat_history)
 
-    lower_msg = message.lower()
-
-    if "hava" in lower_msg and "nasıl" in lower_msg:
-        weather_response = get_weather(WEATHER_CITY)
+    if "hava" in message and "nasıl" in message:
         return jsonify({
             "history_count": history_count,
-            "response": weather_response
+            "response": get_weather(WEATHER_CITY)
         })
 
-    if "saat" in lower_msg and "kaç" in lower_msg:
-        now_istanbul = datetime.now(pytz.timezone("Europe/Istanbul"))
-        current_time = now_istanbul.strftime("%H:%M")
+    if "tarih" in message:
+        tarih, _ = get_datetime_info()
         return jsonify({
             "history_count": history_count,
-            "response": f"Şu an saat {current_time} civarı, komutan!"
+            "response": f"Bugünün tarihi: {tarih}"
         })
 
-    if "tarih" in lower_msg:
-        now_istanbul = datetime.now(pytz.timezone("Europe/Istanbul"))
-        current_date = now_istanbul.strftime("%d %B %Y")
+    if "saat" in message and "kaç" in message:
+        _, saat = get_datetime_info()
         return jsonify({
             "history_count": history_count,
-            "response": f"Bugünün tarihi: {current_date}."
+            "response": f"Şu an saat {saat} civarında, komutan!"
         })
 
-    today_date = datetime.now(pytz.timezone("Europe/Istanbul")).strftime("%d %B %Y")
+    # Sohbet geçmişi ve karakter yapısı
+    chat_history.append({"role": "user", "content": message})
+
+    tarih, saat = get_datetime_info()
+
+    system_content = (
+        f"Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {tarih}, saat: {saat}.\n"
+        "- Anil'a yardımcı oluyorsun.\n"
+        "- Konuşma tarzın fırlama, samimi ama gerektiğinde ciddi.\n"
+        "- Sürekli 'Nasıl yardımcı olabilirim?' gibi şeyler söyleme.\n"
+        "- Anıl seni yönlendirdikçe yanıt ver, çağrı merkezi gibi davranma.\n"
+        "- Gereksiz kibarlıklardan kaçın."
+    )
+
     system_message = {
         "role": "system",
-        "content": f"""Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {today_date}.
-Konuşma dilin Türkçe. Mizahi, samimi ve gerektiğinde ağırbaşlı bir tavrın var.
-Kullanıcı sana soru sormadıkça asla 'Size nasıl yardımcı olabilirim?' gibi sorular sorma.
-Direkt yanıt ver. Kendini kibar bir çağrı merkezi robotu gibi değil, dost gibi hisset.
-Ama gerekirse disiplinli de ol. Eğer kullanıcı tarihi sorarsa bugünün tarihini net söyle."""
+        "content": system_content
     }
-
-    chat_history.append({"role": "user", "content": message})
 
     payload = {
         "model": OPENROUTER_MODEL,
