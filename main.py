@@ -10,21 +10,6 @@ app = Flask(__name__)
 
 # Hafıza sistemi
 chat_history = []
-command_triggers = {
-    "kaskı kapat": {
-        "reply": "Tüm Ulu Kağanlara Selam Olsun!",
-        "actions": "servo:kapat; led:yan; sound:servo.mp3,metal.mp3"
-    },
-    "kaskı aç": {
-        "reply": "Harp Türklüğündür!",
-        "actions": "led:son; servo:ac; sound:servo.mp3"
-    },
-    "kaskı hazırla": {
-        "reply": "Kask hazır, Anıl.",
-        "actions": ""
-    }
-}
-
 
 # API Anahtarları ve ayarlar
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -73,8 +58,40 @@ def chat():
     global chat_history
 
     data = request.get_json()
-    message = data.get("message", "").lower().strip()
+    message = data.get("message", "").lower()
     history_count = len(chat_history)
+
+    # Komutlara özel teknik yanıtlar
+    command_triggers = {
+        "kaskı kapat": {
+            "reply": "Tüm Ulu Kağanlara Selam Olsun!",
+            "actions": "servo:kapat; led:yan; sound:servo.mp3; sound:metal.mp3"
+        },
+        "kaskı aç": {
+            "reply": "Harp Türklüğündür!",
+            "actions": "led:son; servo:ac; sound:servo.mp3"
+        },
+        "kaskı hazırla": {
+            "reply": "Kask hazır, Anıl.",
+            "actions": "sound:hazir.mp3"
+        }
+    }
+
+    # Fonksiyon içindeyken kontrol
+    for trigger, details in command_triggers.items():
+        if trigger in message:
+            return Response(
+                json.dumps({
+                    "history_count": history_count,
+                    "response": details["reply"],
+                    "actions": details["actions"]
+                }, ensure_ascii=False).encode("utf-8"),
+                content_type="application/json; charset=utf-8"
+            )
+
+    # Komutlara uymuyorsa aşağıya geçer, ChatGPT'ye sorar
+    ...
+
     # Komut kontrolü
 for trigger, details in command_triggers.items():
     if trigger in message:
