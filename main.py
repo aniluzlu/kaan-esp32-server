@@ -1,8 +1,11 @@
+
+# -*- coding: utf-8 -*-
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, Response, jsonify
 from datetime import datetime
 import pytz
+import json
 
 app = Flask(__name__)
 
@@ -61,24 +64,33 @@ def chat():
     history_count = len(chat_history)
 
     if "hava" in message and "nasıl" in message:
-        return jsonify({
-            "history_count": history_count,
-            "response": get_weather(WEATHER_CITY)
-        })
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": get_weather(WEATHER_CITY)
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
     if "tarih" in message:
         tarih, _ = get_datetime_info()
-        return jsonify({
-            "history_count": history_count,
-            "response": f"Bugünün tarihi: {tarih}"
-        })
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": f"Bugünün tarihi: {tarih}"
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
     if "saat" in message and "kaç" in message:
         _, saat = get_datetime_info()
-        return jsonify({
-            "history_count": history_count,
-            "response": f"Şu an saat {saat} civarında, komutan!"
-        })
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": f"Şu an saat {saat} civarında, komutan!"
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
     # Sohbet geçmişi ve karakter yapısı
     chat_history.append({"role": "user", "content": message})
@@ -86,12 +98,11 @@ def chat():
     tarih, saat = get_datetime_info()
 
     system_content = f"""Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {tarih}, saat: {saat}.
-- Anil'a yardımcı oluyorsun.
+- Anıl'a yardımcı oluyorsun.
 - Konuşma tarzın fırlama, samimi ama gerektiğinde ciddi.
 - Sürekli 'Nasıl yardımcı olabilirim?' gibi şeyler söyleme.
 - Anıl seni yönlendirdikçe yanıt ver, çağrı merkezi gibi davranma.
 - Gereksiz kibarlıklardan kaçın."""
-
 
     system_message = {
         "role": "system",
@@ -113,15 +124,21 @@ def chat():
     if response.status_code == 200:
         reply = response.json()["choices"][0]["message"]["content"]
         chat_history.append({"role": "assistant", "content": reply})
-        return jsonify({
-            "history_count": history_count,
-            "response": reply
-        })
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": reply
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
     else:
-        return jsonify({
-            "error": "OpenRouter yanıt vermedi.",
-            "details": response.text
-        }), 500
+        return Response(
+            json.dumps({
+                "error": "OpenRouter yanıt vermedi.",
+                "details": response.text
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
 if __name__ == "__main__":
     app.run(debug=True)
