@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import os
 import requests
@@ -34,7 +33,6 @@ def get_datetime_info():
 def get_weather(city):
     if not WEATHER_API_KEY:
         return "Hava durumu servisi ayarlanmadı."
-
     try:
         params = {
             "q": city,
@@ -60,28 +58,26 @@ def chat():
     global chat_history
 
     data = request.get_json()
-    message = data.get("message", "").lower()
+    message = data.get("message", "").lower().strip()
     history_count = len(chat_history)
 
-    # 👇 KOMUT TETİKLERİ BURADA FONKSİYONUN İÇİNDE OLMALI
+    # 🔧 Net komut eşleşmeleri
     command_triggers = {
         "kaskı kapat": "servo:kapat; led:yan; sound:kapanma.mp3",
         "kaskı aç": "led:son; servo:ac; sound:acilis.mp3",
         "kaskı hazırla": "sound:hazir.mp3"
     }
 
-    for trigger, response_text in command_triggers.items():
-        if trigger in message:
-            return Response(
-                json.dumps({
-                    "history_count": history_count,
-                    "response": response_text
-                }, ensure_ascii=False).encode("utf-8"),
-                content_type="application/json; charset=utf-8"
-            )
+    if message in command_triggers:
+        return Response(
+            json.dumps({
+                "history_count": history_count,
+                "response": command_triggers[message]
+            }, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json; charset=utf-8"
+        )
 
-
-
+    # 📅 Tarih ve saat
     if "hava" in message and "nasıl" in message:
         return Response(
             json.dumps({
@@ -111,9 +107,8 @@ def chat():
             content_type="application/json; charset=utf-8"
         )
 
-    # Sohbet geçmişi ve karakter yapısı
+    # 💬 ChatGPT tabanlı doğal yanıtlar
     chat_history.append({"role": "user", "content": message})
-
     tarih, saat = get_datetime_info()
 
     system_content = f"""Sen KAAN adında bir yapay zekâ asistansın. Bugünün tarihi: {tarih}, saat: {saat}.
