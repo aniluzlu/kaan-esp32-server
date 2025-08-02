@@ -62,6 +62,21 @@ def chat():
     data = request.get_json()
     message = data.get("message", "").lower()
     history_count = len(chat_history)
+    # Kullanıcının mesajına göre doğrudan komut yanıtları
+command_triggers = {
+    "kaskı kapat": "servo:kapat; led:yan; sound:kapanma.mp3",
+    "kaskı aç": "led:son; servo:ac; sound:acilis.mp3",
+    "kaskı hazırla": "sound:hazir.mp3"
+}
+
+# Komut mesajı geldiyse direkt teknik yanıt ver
+for trigger, response_text in command_triggers.items():
+    if trigger in message:
+        return jsonify({
+            "history_count": history_count,
+            "response": response_text
+        })
+
 
     if "hava" in message and "nasıl" in message:
         return Response(
